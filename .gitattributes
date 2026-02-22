@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+Data/sce_list_simple.rds filter=lfs diff=lfs merge=lfs -text
+Data/global_seurat.rds filter=lfs diff=lfs merge=lfs -text

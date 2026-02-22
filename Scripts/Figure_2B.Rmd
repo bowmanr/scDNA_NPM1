@@ -1,0 +1,162 @@
+---
+title: 'scDNA: NPM1 Figure 2B'
+output: html_document
+date: "2026-02-22"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(Seurat)
+library(dplyr)
+library(RColorBrewer)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+library(ggrastr)
+```
+
+```{r load data,cache=T}
+project_dir<-"~/Projects/R_packages/scDNA_NPM1/"
+final_s_subset_1k_live<-readRDS(file=paste0(project_dir,"Data/global_seurat.rds"))
+```
+
+```{r consolidate genotypes}
+new_genotype_info<-final_s_subset_1k_live@meta.data%>%
+              select(Patient,Stage_code,harmony_clusters,Genotype,
+                    IDH2,IDH1,TET2,DNMT3A,NPM1,NRAS,KRAS,PTPN11,FLT3)%>%
+              mutate(new_genotype=case_when(
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"WT",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"NPM1_only",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"NPM1_FLT3",
+                
+                (IDH1==1|IDH1==1)&DNMT3A==0&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"IDH_only",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_only",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"TET2_only",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"IDH_NPM1",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_NPM1",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"TET2_NPM1",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"IDH_NPM1_MAPK",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"DNMT3A_NPM1_MAPK",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"TET2_NPM1_MAPK",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"IDH_NPM1_FLT3",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"DNMT3A_NPM1_FLT3",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"TET2_NPM1_FLT3",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_IDH",
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_IDH_NPM1",
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"DNMT3A_IDH_NPM1_MAPK",
+
+                TRUE~"Other"
+              ))
+
+final_s_subset_1k_live<-AddMetaData(object = final_s_subset_1k_live,
+                                    metadata = new_genotype_info$new_genotype,col.name = "new_genotype")
+
+```
+
+```{r color schemes}
+TI_colors<- c("grey80",
+              brewer.pal(n=9,name="Reds")[c(3,5,7)], #TET2
+              brewer.pal(n=9,name="Blues")[c(3,5,7)])  #IDH2
+
+names(TI_colors)<- c("WT", 
+                    "TET2-only","TET2-NPM1","TET2-NPM1-MAPK",
+                     "IDH-only","IDH-NPM1","IDH-NPM1-MAPK"
+                         )
+                                               
+```
+
+```{r extract clones and proteins of interest}
+clones_of_interest<- c("TET2_NPM1_MAPK","TET2_NPM1")
+proteins_of_interest<-c("CD11b","CD14","CD16","CD3","CD117","CD34")
+
+data_out<-data.frame(t(final_s_subset_1k_live@assays$Protein@data),
+                  new_genotype_info%>%
+                        dplyr::select(Patient,Stage=Stage_code,Clone=new_genotype)) %>%
+                    tidyr::pivot_longer(cols=!c(Patient,Stage,Clone),
+                    names_to = "Protein" ,
+                    values_to = "Expression")%>%
+                  filter(Clone%in%clones_of_interest)%>%
+                  filter(Protein%in%proteins_of_interest)%>%
+                  filter(Stage!="CR")
+
+patients_with_both_clones<-data_out%>%
+                            dplyr::select(Patient,Stage,Clone)%>%
+                            distinct%>%
+                            group_by(Patient,Stage)%>%
+                            summarize(clone_count=n())%>%
+                            filter(clone_count==2)%>%
+                            pull(Patient)
+```
+   
+   
+```{r plot the data}  
+graph_out<-data_out%>%
+        filter(Patient%in%patients_with_both_clones)%>%
+        filter(Protein=="CD14")%>%
+        mutate(Clone=case_when(
+          Clone=="TET2_NPM1"~"TN",
+          Clone=="TET2_NPM1_MAPK"~"TN_MAPK",
+          TRUE~"error"
+        ))%>%
+        mutate(Patient=factor(Patient,levels=c("I","U","V","W","F","G","AA","L")))%>%
+        ggplot(aes(x=interaction(Clone,Patient),y=Expression,color=Clone))+
+            geom_jitter_rast(width=0.25,alpha=.25,size=0.25)+
+            geom_boxplot(fill = "transparent",size = 0.25,width=0.25,outliers = F,color="grey25")+
+            scale_y_continuous(expand = c(0,0))+
+            scale_color_manual(values=c("TN"=brewer.pal(n=9,name="Reds")[3],
+                                  "TN_MAPK"=brewer.pal(n=9,name="Reds")[5])) +
+            guides(color="none")+
+            xlab("")+ylab("CD14 - Normalized Expression")+
+            geom_vline(xintercept = c(2.5,4.5,6.5,8.5,10.5,12.5,14.5),lty=2,lwd=0.1)+
+            theme_classic(base_size = 8)+
+              theme(strip.background = element_blank(),axis.text.x = element_text(angle=45,hjust=1))+
+              theme(axis.text.x=element_text(angle=45,hjust=1))
+
+ggsave(graph_out, file=paste0(project_dir,"/Results/Figure2B_stripchart_final.pdf"),
+       width = 3,
+       height=2.25)
+```
+
+
+
+
+```{r calculate differential expression by patient}
+subset_s<-subset(final_s_subset_1k_live,new_genotype%in%clones_of_interest)
+
+patient_results<-lapply(unique(subset_s$Patient),function(patient){
+    
+    subset_patient<-subset(subset_s,Patient%in%patient)
+    if(length(unique(subset_patient$new_genotype))!=2){
+        return(NULL)
+      } else {
+    Idents(subset_patient)<-"new_genotype"
+      return(Seurat::FindMarkers(subset_patient,
+                                 features=proteins_of_interest,
+                                 ident.1=clones_of_interest[1],
+                                 ident.2=clones_of_interest[2], 
+                                 logfc.threshold = 0
+              )%>%
+              data.frame()%>%
+              tibble::rownames_to_column(var = "Protein")%>%
+              mutate(Patient=patient)%>%
+              filter(Protein=="CD14"))
+      }
+})
+names(patient_results)<-unique(subset_s$Patient)
+
+do.call(rbind,patient_results)%>%
+        write.csv(paste0(project_dir,"Results/Figure2B_stats.csv"),row.names = F,quote = F)
+
+
+```
+
+
+
