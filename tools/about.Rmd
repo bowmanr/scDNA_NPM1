@@ -1,0 +1,2 @@
+### About
+This is a shiny app for internal usage by the Bowman Lab in the Cancer Biology Department at the University of Pennsylvania.
