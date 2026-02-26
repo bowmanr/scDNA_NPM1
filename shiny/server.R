@@ -101,7 +101,7 @@ server <- function(input, output, session) {
       }
     }
 
-    ggplot(df, aes(x = Clone, y = Expression, fill = Clone)) +
+    ggplot2::ggplot(df, aes(x = Clone, y = Expression, fill = Clone)) +
       geom_boxplot(outlier.shape = NA) +
       geom_jitter(width = 0.05, size = 0.4) +
       facet_wrap(~Protein, scales = facet_scales) +
@@ -211,7 +211,7 @@ server <- function(input, output, session) {
     # build a stable color map that matches your dotplot bar colors
     fill_map <- get_clone_fill_map(df$Clone)
     
-    ggplot(df, aes(x = UMAP_1, y = UMAP_2, color = Clone)) +
+    ggplot2::ggplot(df, aes(x = UMAP_1, y = UMAP_2, color = Clone)) +
       geom_point(size = 0.75) +
       scale_color_manual(values = fill_map) +
       theme_classic(base_size = 14) +
@@ -236,7 +236,7 @@ server <- function(input, output, session) {
     dfp <- meta_small %>% dplyr::left_join(ex, by = "Cell")
     req(nrow(dfp) > 0)
     
-    ggplot(dfp, aes(UMAP_1, UMAP_2, color = Expression)) +
+    ggplot2::ggplot(dfp, aes(UMAP_1, UMAP_2, color = Expression)) +
       geom_point(size = 0.75) +
       theme_classic(base_size = 14) +
       scale_color_viridis_c()+
@@ -326,7 +326,7 @@ server <- function(input, output, session) {
     if (is_clone_x) {
       clone_fill_map <- get_clone_fill_map(group_levels)
       
-      p_bar <- ggplot(ab, aes(x = factor(Group, levels = group_levels), y = n, fill = Group)) +
+      p_bar <- ggplot2::ggplot(ab, aes(x = factor(Group, levels = group_levels), y = n, fill = Group)) +
         geom_col() +
         scale_fill_manual(values = clone_fill_map, guide = "none") +
         theme_classic(base_size = 14) +
@@ -337,7 +337,7 @@ server <- function(input, output, session) {
           plot.margin = margin(5.5, 5.5, 0, 5.5)
         )
     } else {
-      p_bar <- ggplot(ab, aes(x = factor(Group, levels = group_levels), y = n)) +
+      p_bar <- ggplot2::ggplot(ab, aes(x = factor(Group, levels = group_levels), y = n)) +
         geom_col() +
         theme_classic(base_size = 14) +
         labs(x = NULL, y = "# cells") +
@@ -349,7 +349,7 @@ server <- function(input, output, session) {
     }
     
     
-    p_dot <- ggplot(dd, aes(x = Group, y = Protein)) +
+    p_dot <- ggplot2::ggplot(dd, aes(x = Group, y = Protein)) +
       geom_point(aes(size = pct_expr, color = avg_expr), alpha = 0.9) +
       scale_size_continuous(name = "% expressing", range = c(0.5, 8)) +
       scale_color_viridis_c(name = "Mean expr") +
