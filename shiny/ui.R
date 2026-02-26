@@ -3,7 +3,7 @@ library(shiny)
 
 ui <- bs4DashPage(
   
-  title = "scDNA Dashboard",
+  title = "scDNA NPM1 Dashboard",
   
   header = bs4DashNavbar(),
   
@@ -250,7 +250,7 @@ ui <- bs4DashPage(
             
             fluidRow(
               column(
-                3,
+                4,
                 selectInput(
                   "ss_patient",
                   "Patient",
@@ -258,7 +258,7 @@ ui <- bs4DashPage(
                 )
               ),
               column(
-                3,
+                4,
                 selectizeInput(
                   "ss_stage",
                   "Stage",
@@ -267,7 +267,7 @@ ui <- bs4DashPage(
                 )
               ),
               column(
-                3,
+                4,
                 radioButtons(
                   "ss_clone_mode",
                   "Clone labels",
@@ -277,9 +277,10 @@ ui <- bs4DashPage(
                   ),
                   selected = "consolidated"
                 )
-              ),
+              )),
+            fluidRow(
               column(
-                3,
+                4,
               radioButtons(
                 "ss_dot_x",
                 "DotPlot x-axis",
@@ -289,7 +290,7 @@ ui <- bs4DashPage(
               )
               ),
               column(
-                3,
+                4,
                 selectInput(
                   "ss_protein",
                   "Protein",
