@@ -1,0 +1,139 @@
+---
+title: 'scDNA: NPM1 Figure 2A'
+output: html_document
+date: "2026-02-22"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(Seurat)
+library(dplyr)
+library(RColorBrewer)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+library(ggrastr)
+```
+
+```{r load data,cache=T}
+final_s_subset_1k_live<-readRDS(file="/Users/bowmanrl/Projects/LAM/NPM1_CE_clean/Data/DP45_seurat_2025_10_29.rds")
+```
+
+```{r consolidate genotypes}
+new_genotype_info<-final_s_subset_1k_live@meta.data%>%
+              select(Patient,Stage_code,harmony_clusters,Genotype,
+                    IDH2,IDH1,TET2,DNMT3A,NPM1,NRAS,KRAS,PTPN11,FLT3)%>%
+              mutate(new_genotype=case_when(
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"WT",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"NPM1_only",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"NPM1_FLT3",
+                
+                (IDH1==1|IDH1==1)&DNMT3A==0&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"IDH_only",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_only",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"TET2_only",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"IDH_NPM1",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_NPM1",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"TET2_NPM1",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"IDH_NPM1_MAPK",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"DNMT3A_NPM1_MAPK",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"TET2_NPM1_MAPK",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"IDH_NPM1_FLT3",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"DNMT3A_NPM1_FLT3",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"TET2_NPM1_FLT3",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_IDH",
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_IDH_NPM1",
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"DNMT3A_IDH_NPM1_MAPK",
+
+                TRUE~"Other"
+              ))
+
+final_s_subset_1k_live<-AddMetaData(object = final_s_subset_1k_live,
+                                    metadata = new_genotype_info$new_genotype,col.name = "new_genotype")
+
+```
+
+```{r extract data}
+complete_data_out<-data.frame(t(final_s_subset_1k_live@assays$Protein@data),
+                  new_genotype_info%>%
+                        dplyr::select(Patient,Stage=Stage_code,Clone=new_genotype)) %>%
+                    tidyr::pivot_longer(cols=!c(Patient,Stage,Clone),
+                    names_to = "Protein" ,
+                    values_to = "Expression")
+```
+   
+   
+```{r plot the data}  
+protein_of_interest<-"CD44"
+summarized_data<-complete_data_out%>%
+      filter(!Clone%in%c("Other","NPM1_only"))%>%
+      mutate(Clone=factor(Clone,levels=rev(c("WT","TET2_only","TET2_NPM1","TET2_NPM1_MAPK",
+                                         "IDH_only","IDH_NPM1","IDH_NPM1_MAPK",
+                                         "DNMT3A_only","DNMT3A_NPM1","DNMT3A_NPM1_MAPK","DNMT3A_NPM1_FLT3",
+                                         "DNMT3A_IDH","DNMT3A_IDH_NPM1","DNMT3A_IDH_NPM1_MAPK"))))%>%
+      filter(!is.na(Clone))%>%
+      filter(Stage%in%c("D","R"))%>%
+      group_by(Patient)%>%
+      ungroup()%>%
+      filter(Protein==protein_of_interest)%>%
+      group_by(Patient,Clone,Stage)%>%
+      summarise(pct_exprs=sum(Expression>0)/n(),
+                mean_exprs=mean(Expression[Expression!=0]))
+
+
+patient_Diagnosis_cluster<-summarized_data%>%
+        filter(Stage=="D")%>%
+        tidyr::pivot_wider(id_cols = Patient,names_from = Clone,values_from  = mean_exprs,values_fill = 0)%>%
+        tibble::column_to_rownames(var = "Patient")%>%
+        dist()%>%
+        hclust()
+      
+patient_diagnosis_order<-patient_Diagnosis_cluster$labels[patient_Diagnosis_cluster$order]
+
+
+patient_relapse_cluster<-summarized_data%>%
+        filter(Stage=="R")%>%
+        tidyr::pivot_wider(id_cols = Patient,names_from = Clone,values_from  = mean_exprs,values_fill = 0)%>%
+        tibble::column_to_rownames(var = "Patient")%>%
+        dist()%>%
+        hclust()
+      
+patient_relapse_order<-patient_relapse_cluster$labels[patient_relapse_cluster$order]
+
+
+final_order<-c(setdiff(patient_diagnosis_order,patient_relapse_order),
+               intersect(patient_diagnosis_order,patient_relapse_order),
+               setdiff(patient_relapse_order,patient_diagnosis_order))
+
+
+graph_out<- ggplot(summarized_data%>%
+                     mutate(Patient=factor(Patient,levels=final_order))%>%
+                     mutate(Stage=case_when(
+                        Stage=="D"~"Diagnosis",
+                        Stage=="R"~"Relapse",
+                        TRUE~"error")),
+                   aes(x=Patient,y=Clone,size=pct_exprs,color=mean_exprs))+
+            geom_point()+
+            facet_grid(.~Stage,scale="free")+
+            scale_color_distiller(palette = "YlGnBu", type = "seq",direction=1)+
+            theme_classic(base_size =16)+
+              theme(strip.background = element_blank(),
+                    strip.text.x=element_text(size=20))
+
+ggsave(graph_out, file="~/Projects/LAM/NPM1_CE_clean/Results/02_21_26/FigureS2A_dotplot.pdf",
+       width = 16,
+       height=4)
+```
+
+
+
+
+
+

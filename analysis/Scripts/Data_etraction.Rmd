@@ -1,0 +1,191 @@
+---
+title: 'scDNA: NPM1 Figure 2A'
+output: html_document
+date: "2026-02-22"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(Seurat)
+library(dplyr)
+library(RColorBrewer)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+```
+
+```{r load data,cache=T}
+project_dir<-"~/Projects/R_packages/scDNA_NPM1/"
+final_s_subset_1k_live<-readRDS(file=paste0(project_dir,"Data/global_seurat.rds"))
+
+sce_list<-readRDS(file=paste0(project_dir,"Data/DP45_diet_sce_list.rds"))
+pheno<-read.csv("/Users/bowmanrl/Projects/LAM/NPM1_CE_clean/Data/DP45_uniform_pheno.csv")
+
+
+lapply(pheno$Filename,function(sample){
+  subset
+  clonograph(sce_list[[sample]],complete_only = F,se)
+})
+names(sce_list)%in%pheno[,1]
+```
+
+```{r consolidate genotypes}
+new_genotype_info<-final_s_subset_1k_live@meta.data%>%
+              select(Patient,Stage_code,harmony_clusters,Genotype,
+                    IDH2,IDH1,TET2,DNMT3A,NPM1,NRAS,KRAS,PTPN11,FLT3)%>%
+              mutate(new_genotype=case_when(
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"WT",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"NPM1_only",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"NPM1_FLT3",
+                
+                (IDH1==1|IDH1==1)&DNMT3A==0&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"IDH_only",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_only",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"TET2_only",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"IDH_NPM1",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_NPM1",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"TET2_NPM1",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"IDH_NPM1_MAPK",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"DNMT3A_NPM1_MAPK",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"TET2_NPM1_MAPK",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==0&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"IDH_NPM1_FLT3",
+                (IDH1==0&IDH2==0)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"DNMT3A_NPM1_FLT3",
+                (IDH1==0&IDH2==0)&DNMT3A==0&TET2==1&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0)&FLT3==1~"TET2_NPM1_FLT3",
+                
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==0&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_IDH",
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==0&KRAS==0&PTPN11==0&FLT3==0)~"DNMT3A_IDH_NPM1",
+                (IDH1==1|IDH2==1)&DNMT3A==1&TET2==0&NPM1==1&(NRAS==1|KRAS==1|PTPN11==1)&FLT3==0~"DNMT3A_IDH_NPM1_MAPK",
+
+                TRUE~"Other"
+              ))
+
+final_s_subset_1k_live<-AddMetaData(object = final_s_subset_1k_live,
+                                    metadata = new_genotype_info$new_genotype,col.name = "new_genotype")
+
+```
+
+```{r color schemes}
+TI_colors<- c("grey80",
+              brewer.pal(n=9,name="Reds")[c(3,5,7)], #TET2
+              brewer.pal(n=9,name="Blues")[c(3,5,7)])  #IDH2
+
+names(TI_colors)<- c("WT", 
+                    "TET2-only","TET2-NPM1","TET2-NPM1-MAPK",
+                     "IDH-only","IDH-NPM1","IDH-NPM1-MAPK"
+                         )
+                                               
+```
+
+```{r pseudobulk,cache=T}
+pseudo_seurat_consolidated <- AggregateExpression(final_s_subset_1k_live, 
+                                      assays = "Protein", 
+                                      return.seurat = T, 
+                                      group.by = c("Patient","Stage_code","new_genotype"))
+
+pseudo_seurat_exact<- AggregateExpression(final_s_subset_1k_live, 
+                                      assays = "Protein", 
+                                      return.seurat = T, 
+                                      group.by = c("Patient","Stage_code","Genotype"))
+
+```
+
+
+
+```{r extract pseudobulk data}
+pseudo_out_consolidated<-FetchData(object = pseudo_seurat_consolidated,vars = c(rownames(pseudo_seurat_consolidated),
+                                                      "Patient",
+                                                      "Stage_code",
+                                                      "new_genotype"))%>%
+            tidyr::pivot_longer(cols = !c(Patient,Stage_code,new_genotype),
+                                names_to = "Protein",
+                                values_to = "Expression")
+         
+
+pseudo_out_exact<-FetchData(object = pseudo_seurat_exact,vars = c(rownames(pseudo_seurat_exact),
+                                                      "Patient",
+                                                      "Stage_code",
+                                                      "Genotype"))%>%
+            tidyr::pivot_longer(cols = !c(Patient,Stage_code,Genotype),
+                                names_to = "Protein",
+                                values_to = "Expression")
+
+
+
+write.csv(pseudo_out_exact,file = "~/Projects/LAM/NPM1_CE_clean/DP45_LAM_shiny/data/pseudo_bulk_exact_clone.csv",row.names = F,quote = F)
+
+write.csv(pseudo_out_consolidated,file = "~/Projects/LAM/NPM1_CE_clean/DP45_LAM_shiny/data/pseudo_bulk_consolidated_clone.csv",row.names = F,quote = F)
+
+```
+
+
+
+```{r extract significance}
+
+Idents(pseudo_seurat_exact)<-"Genotype"
+clones<-setdiff(unique(pseudo_out_exact$Genotype),"Other")
+
+tests <- t(combn(clones, 2)) %>%
+            as.data.frame()
+
+colnames(tests) <- c("clone1", "clone2")
+
+pseudo_deseq_exact<-apply(tests,1,function(clones){
+        print(clones)
+        return(Seurat::FindMarkers(pseudo_seurat_exact,test.use="DESeq2",
+                                   min.cells.group=0,
+                                   ident.1=clones[1],
+                                   ident.2=clones[2], 
+                                   logfc.threshold = 0,
+                ) %>%
+                data.frame()%>%
+                tibble::rownames_to_column(var = "Protein")%>%
+                mutate(clone1=clones[1])%>%
+                mutate(clone2=clones[2])%>%
+                dplyr::select(-pct.1,-pct.2))
+})
+
+
+
+do.call(rbind,pseudo_deseq_consolidates)%>%
+    write.csv(file = "~/Projects/LAM/NPM1_CE_clean/DP45_LAM_shiny/data/pseudo_bulk_exact_clone_statistics.csv",row.names = F,quote = F)
+```
+
+
+```{r}
+out<-FetchData(object = final_s_subset_1k_live,vars = c(rownames(final_s_subset_1k_live),
+                                                        
+                                                        "Cell",
+                                                      "Patient",
+                                                      "Stage_code",
+                                                      "harmony_clusters",
+                                                      "new_genotype",
+                                                      "Genotype",
+                                                      "UMAP_X",
+                                                      "UMAP_Y"))%>%
+            tidyr::pivot_longer(cols = !c(Cell,Patient,Stage_code,harmony_clusters,new_genotype,Genotype,UMAP_X,UMAP_Y),
+                                names_to = "Protein",
+                                values_to = "Expression")%>%
+
+
+library(dplyr)
+library(arrow)
+
+# df_long is your current big table
+
+cell_meta <- out %>%
+  distinct(Cell, .keep_all = TRUE) %>%
+  select(Cell,Cluster=harmony_clusters, Patient, Stage_code, new_genotype, Genotype, UMAP_X, UMAP_Y)
+
+expr_long <- out %>%
+  select(Cell, Protein, Expression)
+getwd()
+
+write_parquet(cell_meta, "cell_meta.parquet", compression = "zstd")
+write_parquet(expr_long, "expr_long.parquet", compression = "zstd")
+```
